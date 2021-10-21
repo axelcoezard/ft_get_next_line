@@ -6,103 +6,113 @@
 /*   By: acoezard <acoezard@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/10/19 21:29:06 by acoezard          #+#    #+#             */
-/*   Updated: 2021/10/20 16:42:36 by acoezard         ###   ########.fr       */
+/*   Updated: 2021/10/21 11:42:49 by acoezard         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "get_next_line.h"
 
-static char	*gnl_get_line(char *buffer)
+static char	*gnl_get_line(char *backup)
 {
 	char	*line;
-	int		buffer_size;
+	int		backup_size;
 	int		rest_size;
 
-	if (!buffer)
+	if (backup == NULL)
 		return (NULL);
-	buffer_size = ft_strlen(buffer);
-	rest_size = ft_strlen(ft_strchr(buffer, '\n')) - 1;
-	if (rest_size > buffer_size)
-		return (NULL);
-	line = (char *) malloc(buffer_size - rest_size + 1);
-	ft_strlcpy(line, buffer, buffer_size - rest_size + 1);
+	backup_size = ft_strlen(backup);
+	rest_size = ft_strlen(ft_strchr(backup, '\n')) - 1;
+	line = (char *) malloc(backup_size - rest_size + 1);
+	ft_strlcpy(line, backup, backup_size - rest_size + 1);
 	return (line);
 }
 
-static char	*gnl_reset_buffer(char *buffer, char *line)
+static char	*gnl_reset_backup(char *backup, char *line)
 {
-	char	*n_buffer;
-	int		buffer_size;
+	char	*n_backup;
+	int		backup_size;
 	int		line_size;
 
-	if (!buffer || !line)
+	if (backup == NULL || line == NULL)
 		return (NULL);
-	buffer_size = ft_strlen(buffer);
+	backup_size = ft_strlen(backup);
 	line_size = ft_strlen(line);
-	n_buffer = malloc(buffer_size - line_size + 1);
-	ft_strlcpy(n_buffer, buffer + line_size, buffer_size - line_size);
-	free(buffer);
-	return (n_buffer);
+	if (line_size <= 0)
+	{
+		free(backup);
+		return (NULL);
+	}
+	n_backup = malloc(backup_size - line_size + 1);
+	ft_strlcpy(n_backup, backup + line_size, backup_size - line_size + 1);
+	free(backup);
+	return (n_backup);
 }
 
-static char	*gnl_extend_buffer(char *buffer, char *bytes)
+static char	*gnl_extend_backup(char *backup, char *bytes)
 {
-	char	*n_buffer;
-	int		buffer_size;
+	char	*n_backup;
+	int		backup_size;
 	int		bytes_size;
 
-	if (!buffer || !bytes)
+	if (backup == NULL || bytes == NULL)
 		return (NULL);
-	buffer_size = ft_strlen(buffer);
+	backup_size = ft_strlen(backup);
 	bytes_size = ft_strlen(bytes);
-	n_buffer = (char *) malloc(buffer_size + bytes_size + 1);
-	ft_strlcpy(n_buffer, buffer, buffer_size + 1);
-	ft_strlcat(n_buffer, bytes, buffer_size + bytes_size + 1);
-	free(buffer);
-	return (n_buffer);
+	n_backup = (char *) malloc(backup_size + bytes_size + 1);
+	ft_strlcpy(n_backup, backup, backup_size + 1);
+	ft_strcat(n_backup, bytes);
+	free(backup);
+	return (n_backup);
 }
 
-static char	*gnl_get_until_newline(int fd, char *buffer)
+static char	*gnl_get_until_newline(int fd, char *backup)
 {
 	char	*bytes;
 	int		reader;
 
-	reader = 1;
 	bytes = (char *) malloc(BUFFER_SIZE + 1);
-	while (!ft_strchr(buffer, '\n') && reader != 0)
+	if (!bytes)
+	{
+		free(bytes);
+		free(backup);
+		return (NULL);
+	}
+	reader = 1;
+	while (!ft_strchr(backup, '\n') && reader != 0)
 	{
 		reader = read(fd, bytes, BUFFER_SIZE);
 		if (reader == -1)
 		{
-			free(buffer);
+			free(backup);
 			free(bytes);
 			return (NULL);
 		}
-		bytes[BUFFER_SIZE] = 0;
-		buffer = gnl_extend_buffer(buffer, bytes);
+		bytes[reader] = 0;
+		backup = gnl_extend_backup(backup, bytes);
 	}
 	free(bytes);
-	if (reader == 0)
-	{
-		free(buffer);
-		return (NULL);
-	}
-	return (buffer);
+	return (backup);
 }
 
 char	*get_next_line(int fd)
 {
-	static char	*buffer;
+	static char	*backup;
 	char		*line;
 
 	if (fd < 0 || BUFFER_SIZE <= 0)
 		return (NULL);
-	if (!buffer)
-		buffer = ft_strdup("");
-	buffer = gnl_get_until_newline(fd, buffer);
-	if (!buffer)
+	if (!backup)
+		backup = ft_strdup("");
+	backup = gnl_get_until_newline(fd, backup);
+	if (backup == NULL)
 		return (NULL);
-	line = gnl_get_line(buffer);
-	buffer = gnl_reset_buffer(buffer, line);
+	line = gnl_get_line(backup);
+	backup = gnl_reset_backup(backup, line);
+	if (line[0] == '\0')
+	{
+		free(backup);
+		free(line);
+		return (NULL);
+	}
 	return (line);
 }
